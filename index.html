@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Money Tracker Web App</title>
+    <style>
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            margin: 0;
+        }
+
+        h1, h2 {
+            text-align: center;
+        }
+
+        .input-section {
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            flex-wrap: wrap;
+        }
+
+        .input-section label {
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
+        .input-section input[type="number"], 
+        .input-section input[type="date"],
+        .input-section select {
+            padding: 5px;
+            margin-right: 10px;
+        }
+
+        .input-section button {
+            padding: 5px 10px;
+            background-color: rgb(238, 9, 9);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .expenses-list {
+            margin: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background-color: rgb(215, 222, 38);
+            color: rgb(12, 1, 1);
+        }
+
+        tfoot td {
+            font-weight: bold;
+        }
+
+        .delete-btn {
+            padding: 5px 10px;
+            background-color: rgb(238, 9, 9);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>Money Tracker Web App</h1>
+    <div class="input-section">
+        <label for="category-select">Category:</label>
+        <select id="category-select">
+            <option value="">Select</option>
+            <option value="College Fee">College Fee</option>
+            <option value="Rent">Rent</option>
+            <option value="Transport">Transport</option>
+            <option value="Food">Food</option>
+            <option value="Shopping">Shopping</option>
+            <option value="Cool Drinks">Cool Drinks</option>
+        </select>
+
+        <label for="amount-input">Amount:</label>
+        <input type="number" id="amount-input" placeholder="Enter amount">
+
+        <label for="date-input">Date:</label>
+        <input type="date" id="date-input">
+
+        <button id="add-btn">Add</button>
+    </div>
+
+    <div class="expenses-list">
+        <h2>Expenses List</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Category</th>
+                    <th>Amount</th>
+                    <th>Date</th>
+                    <th>Delete</th>
+                </tr>
+            </thead>
+            <tbody id="expense-table-body">
+                <!-- Expenses will appear here -->
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td>Total:</td>
+                    <td id="total-amount">0</td>
+                    <td></td>
+                    <td></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+
+    <script>
+        const categorySelect = document.getElementById('category-select');
+        const amountInput = document.getElementById('amount-input');
+        const dateInput = document.getElementById('date-input');
+        const addBtn = document.getElementById('add-btn');
+        const expenseTableBody = document.getElementById('expense-table-body');
+        const totalAmountCell = document.getElementById('total-amount');
+
+        let totalAmount = 0;
+
+        // Load existing expenses on page load
+        window.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const response = await fetch('http://localhost:3000/expenses');
+                const data = await response.json();
+                data.forEach(exp => renderExpense(exp));
+                totalAmount = data.reduce((sum, e) => sum + e.amount, 0);
+                totalAmountCell.textContent = totalAmount;
+            } catch (err) {
+                alert('Failed to fetch expenses from server');
+            }
+        });
+
+        addBtn.addEventListener('click', async () => {
+            const category = categorySelect.value;
+            const amount = Number(amountInput.value);
+            const date = dateInput.value;
+
+            if (category === '') return alert('Please select a category');
+            if (isNaN(amount) || amount <= 0) return alert('Please enter a valid amount');
+            if (date === '') return alert('Please select a date');
+
+            const newExpense = { category, amount, date };
+
+            try {
+                const response = await fetch('http://localhost:3000/expenses', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(newExpense)
+                });
+
+                const savedExpense = await response.json();
+                renderExpense(savedExpense);
+                totalAmount += savedExpense.amount;
+                totalAmountCell.textContent = totalAmount;
+
+                amountInput.value = '';
+                dateInput.value = '';
+                categorySelect.value = '';
+            } catch (err) {
+                alert('Error saving expense');
+            }
+        });
+
+        function renderExpense(expense) {
+            const newRow = expenseTableBody.insertRow();
+
+            const categoryCell = newRow.insertCell();
+            const amountCell = newRow.insertCell();
+            const dateCell = newRow.insertCell();
+            const deleteCell = newRow.insertCell();
+
+            categoryCell.textContent = expense.category;
+            amountCell.textContent = expense.amount;
+            dateCell.textContent = expense.date;
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.textContent = 'Delete';
+            deleteBtn.classList.add('delete-btn');
+
+            deleteBtn.addEventListener('click', async () => {
+                try {
+                    await fetch(`http://localhost:3000/expenses/${expense.id}`, { method: 'DELETE' });
+                    totalAmount -= expense.amount;
+                    totalAmountCell.textContent = totalAmount;
+                    expenseTableBody.removeChild(newRow);
+                } catch (err) {
+                    alert('Failed to delete expense');
+                }
+            });
+
+            deleteCell.appendChild(deleteBtn);
+        }
+    </script>
+</body>
+</html>
